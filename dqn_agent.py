@@ -8,7 +8,7 @@ import copy
 import torch
 import random
 
-ACTION_SPACE = 12
+ACTION_SPACE = 7
 
 HEIGHT =  84
 
@@ -25,10 +25,6 @@ class DqnAgent:
         self.q = DQN(ACTION_SPACE)
 
         self.target = DQN(ACTION_SPACE)
-
-        print(self.q.parameters())
-
-        print(self.target.parameters())
 
         self.replaybuffer = ReplayBuffer(buffer_capacity)
 
@@ -47,6 +43,10 @@ class DqnAgent:
         self.update_counter = 0
 
         self.optimizer = optim.Adam(params=self.q.parameters(), lr=LR)
+
+        self.prev_state = None
+
+        self.step_counter = 0
  
     def set_epsilon(self, epsilon):
         self.epsilon = epsilon
@@ -62,6 +62,9 @@ class DqnAgent:
             return np.random.randint(ACTION_SPACE)
 
         return torch.argmax(output).item()
+
+    def reset(self):
+        self.prev_state = None
     
     def train(self):
 
@@ -71,47 +74,35 @@ class DqnAgent:
 
         state_batch, action_batch, reward_batch, next_state_batch, done_batch = self.replaybuffer.sample(self.batch_size)
 
-        state_tensor = torch.from_numpy(state_batch.astype(np.float32))
+        state_tensor = state_batch
         state_tensor = state_tensor.reshape(self.batch_size, CHANNELS, HEIGHT, WIDTH)
 
-        next_state_tensor = torch.from_numpy(next_state_batch.astype(np.float32))
+        next_state_tensor = next_state_batch
         next_state_tensor = next_state_tensor.reshape(self.batch_size, CHANNELS, HEIGHT, WIDTH)
 
-        action_tensor = torch.from_numpy(action_batch)
+        action_tensor = action_batch
         action_tensor = action_tensor.reshape(1, self.batch_size)
 
-        reward_tensor = torch.from_numpy(reward_batch.astype(np.float32))
+        reward_tensor = reward_batch
         reward_tensor = reward_tensor.reshape(self.batch_size)
 
-        done_tensor = torch.from_numpy(1 - done_batch.astype(np.int8))
+        done_tensor = done_batch.apply_(lambda x: 1 - x)
         done_tensor = done_tensor.reshape(self.batch_size)
 
         q_output_values = self.q(state_tensor).gather(1, action_tensor)
+        q_output_values = q_output_values.reshape(self.batch_size, 1)
 
         target_output_values = torch.zeros(self.batch_size)
-
-        # print(state_tensor)
-
-        # print(next_state_tensor)
-
-        # print(action_tensor)
-
-        # print(reward_tensor)
 
         with torch.no_grad():
             target_output_values = (done_tensor * (self.target(next_state_tensor).detach().max(1)[0]))*self.gamma + reward_tensor
 
         target_output_values = target_output_values.unsqueeze(1)
 
-        print(q_output_values)
-
-        print(target_output_values)
 
         criterion = nn.MSELoss()
 
         loss = criterion(q_output_values, target_output_values)
-
-        print(loss)
         
         self.optimizer.zero_grad()
         loss.backward()
@@ -119,31 +110,34 @@ class DqnAgent:
             params.grad.data.clamp_(-1, 1)
         self.optimizer.step()      
 
-
     def update(self):
         self.target.load_state_dict(self.q.state_dict())
-        # torch.save(self.q.state_dict(), "q.pth")
-        # torch.save(self.target.state_dict(), "target.pth")
 
+    def save(self, msg=""):
+        torch.save(self.q.state_dict(), "./models/dqn_q_model" + msg + ".pt")
+        torch.save(self.target.state_dict(), "./models/dqn_target_model" + msg + ".pt")
 
+    def load(self, msg=""):
+        self.q.load_state_dict(torch.load("./models/dqn_q_model" + msg + ".pt"))
+        self.q.eval()
+        self.target.load_state_dict(torch.load("./models/dqn_target_model" + msg + ".pt"))
+        self.target.eval()
 
-    def get_action(self, frame, action, reward, done):
+    def get_action(self, state, action, reward, done):
+        self.step_counter += 1
 
-        prev_state = None
-        if (self.replaybuffer.num_frames >= replay_buffer.CHANNELS):  
-            prev_state = self.replaybuffer.get_state()
+        if (self.step_counter % 1000000 == 0):
+            self.save(msg="_" + str(self.step_counter))
 
-        self.replaybuffer.add_context(frame)
+        if (self.replaybuffer.size == 0):  
+            self.prev_state = state
 
-        if (self.replaybuffer.num_frames < replay_buffer.CHANNELS):
-            return np.random.randint(ACTION_SPACE)
+        if self.prev_state is None:
+            self.prev_state = state
+        
+        self.replaybuffer.add_entry(self.prev_state, action, reward, state, done)
 
-        state = self.replaybuffer.get_state()
-
-        if prev_state is None:
-            prev_state = state
-        self.replaybuffer.add_entry(prev_state, action, reward, state, done)
-
+        self.prev_state = state
     
         state = torch.from_numpy(state.astype(np.float32))
 

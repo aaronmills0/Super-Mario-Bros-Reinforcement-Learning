@@ -16,7 +16,7 @@ WIDTH = 84
 
 CHANNELS = 4
 
-LR = 0.00025
+LR = 0.0001
 
 class DuelingDqnAgent:
 
@@ -116,14 +116,26 @@ class DuelingDqnAgent:
         self.target.load_state_dict(self.q.state_dict())
 
     def save(self, msg=""):
-        torch.save(self.q.state_dict(), "./models/dueling_dqn_q_model" + msg + ".pt")
-        torch.save(self.target.state_dict(), "./models/dueling_dqn_target_model" + msg + ".pt")
+        q_state = {
+                'state_dict': self.q.state_dict(),
+                'optimizer': self.optimizer.state_dict(),
+        }
+        torch.save(q_state, "./models/dueling_dqn_q_model" + msg + ".pt")
+        target_state = {
+                'state_dict': self.target.state_dict(),
+                'optimizer': self.optimizer.state_dict(),
+        }
+        torch.save(target_state, "./models/dueling_dqn_target_model" + msg + ".pt")
 
     def load(self, msg=""):
-        self.q.load_state_dict(torch.load("./models/dueling_dqn_q_model" + msg + ".pt"))
-        self.q.eval()
-        self.target.load_state_dict(torch.load("./models/dueling_dqn_target_model" + msg + ".pt"))
-        self.target.eval()
+        checkpoint_q = torch.load("./models/dueling_dqn_q_model" + msg + ".pt")
+        self.q.load_state_dict(checkpoint_q['state_dict'])
+        self.optimizer.load_state_dict(checkpoint_q['optimizer'])
+        self.q.train()
+        checkpoint_target = torch.load("./models/dueling_dqn_target_model" + msg + ".pt")
+        self.target.load_state_dict(checkpoint_target['state_dict'])
+        self.optimizer.load_state_dict(checkpoint_target['optimizer'])
+        self.target.train()
 
     def get_action(self, state, action, reward, done):
         self.step_counter += 1

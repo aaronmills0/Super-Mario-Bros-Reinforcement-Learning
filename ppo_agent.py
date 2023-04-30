@@ -18,7 +18,7 @@ WIDTH = 84
 
 CHANNELS = 4
 
-LR = 0.00025
+LR = 0.0001
 
 class PpoAgent:
 
@@ -113,14 +113,26 @@ class PpoAgent:
         self.critic_optimizer.zero_grad()
 
     def save(self, msg=""):
-        torch.save(self.actor.state_dict(), "./models/ppo_actor_model" + msg + ".pt")
-        torch.save(self.critic.state_dict(), "./models/ppo_critic_model" + msg + ".pt")
+        actor_state = {
+                'state_dict': self.actor.state_dict(),
+                'optimizer': self.actor_optimizer.state_dict(),
+        }
+        torch.save(actor_state, "./models/ppo_actor_model" + msg + ".pt")
+        critic_state = {
+                'state_dict': self.critic.state_dict(),
+                'optimizer': self.critic_optimizer.state_dict(),
+        }
+        torch.save(critic_state, "./models/ppo_critic_model" + msg + ".pt")
 
     def load(self, msg=""):
-        self.actor.load_state_dict(torch.load("./models/ppo_actor_model" + msg + ".pt"))
-        self.actor.eval()
-        self.critic.load_state_dict(torch.load("./models/ppo_critic_model" + msg + ".pt"))
-        self.critic.eval()
+        checkpoint_actor = torch.load("./models/ppo_actor_model" + msg + ".pt")
+        self.actor.load_state_dict(checkpoint_actor['state_dict'])
+        self.actor_optimizer.load_state_dict(checkpoint_actor['optimizer'])
+        self.actor.train()
+        checkpoint_critic = torch.load("./models/ppo_critic_model" + msg + ".pt")
+        self.critic.load_state_dict(checkpoint_critic['state_dict'])
+        self.critic_optimizer.load_state_dict(checkpoint_critic['optimizer'])
+        self.critic.train()
 
     def get_action(self, state, reward, done):
         self.step_counter += 1

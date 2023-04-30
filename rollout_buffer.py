@@ -83,11 +83,13 @@ class RolloutBuffer:
         self.latest = self.size
 
     def sample(self, batch_size):
-        indexes = np.arange(len(self.returns_buffer))
+        indices = np.arange(min(len(self.returns_buffer), len(self.advantage_buffer)))
 
-
-
-        samples = np.random.choice(indexes, batch_size)
+        if (indices.size != 0):
+            samples = np.random.choice(indices, batch_size)
+        else:
+            samples = np.array([])
+            print(f"Empty: {indices}")
 
         states = []
         actions = []

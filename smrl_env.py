@@ -1,6 +1,6 @@
 from nes_py.wrappers import JoypadSpace
 import gym_super_mario_bros
-from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
+from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
 env = gym_super_mario_bros.make('SuperMarioBros-v0', apply_api_compatibility=True, render_mode='human')
 # env = gym_super_mario_bros.make('SuperMarioBros-v0', apply_api_compatibility=True)
 env = JoypadSpace(env, SIMPLE_MOVEMENT)
@@ -17,7 +17,7 @@ import numpy as np
 
 num_runs = 1
 
-num_episodes = 3000
+num_episodes = 5000
 
 ACTION_MAP = [
     ['NOOP'],
@@ -75,10 +75,6 @@ class GrayscaleFrames(gym.ObservationWrapper):
     def observation(self, observation):
         return process_state(observation)
 
-# env = GrayscaleFrames(env)      
-# env = FrameInterval(env, step_size=4)
-# env = FrameStack(env, num_stack=4)
-
 def process_state(state):
     state = np.stack(state)
     gray = cv.cvtColor(state, cv.COLOR_BGR2GRAY)
@@ -87,10 +83,10 @@ def process_state(state):
     return gray
 
 def main():
-    # agent = PpoAgent(8192)
-    agent = DdqnAgent(8192)
-    # agent_type = 'ppo'
-    agent_type = 'dqn'
+    agent = PpoAgent(8192)
+    # agent = DuelingDqnAgent(8192)
+    agent_type = 'ppo'
+    # agent_type = 'dqn'
 
     if agent_type == 'dqn':
         agent.reset()
@@ -98,7 +94,7 @@ def main():
     load = True
 
     if (load):
-        agent.load("6000")
+        agent.load("60000")
 
     action = 0
     reward = 0
@@ -117,6 +113,13 @@ def main():
     for i in range(num_runs):
 
         for j in range(num_episodes):
+
+            if j > 0 and j%1000 == 0:
+                    pd.DataFrame(reward_data).to_csv(f"./data/ppo_rewards_{j+60000}.csv")
+                    pd.DataFrame(win_data).to_csv(f"./data/ppo_wins_{j+60000}.csv")
+                    pd.DataFrame(score_data).to_csv(f"./data/ppo_score_{j+60000}.csv")
+                    pd.DataFrame(time_data).to_csv(f"./data/ppo_time_{j+60000}.csv")
+                    agent.save(f"{j+60000}")
 
             print(f"Run: {i} Episode: {j}")
 
@@ -170,15 +173,14 @@ def main():
                     if agent_type == 'dqn':
                         agent.reset()
                     break
-                
     env.close()
 
-    pd.DataFrame(reward_data).to_csv("./data/ddqn_rewards_9000.csv")
-    pd.DataFrame(win_data).to_csv("./data/ddqn_wins_9000.csv")
-    pd.DataFrame(score_data).to_csv("./data/ddqn_score_9000.csv")
-    pd.DataFrame(time_data).to_csv("./data/ddqn_time_9000.csv")
+    pd.DataFrame(reward_data).to_csv("./data/ppo_rewards_65000.csv")
+    pd.DataFrame(win_data).to_csv("./data/ppo_wins_65000.csv")
+    pd.DataFrame(score_data).to_csv("./data/ppo_score_65000.csv")
+    pd.DataFrame(time_data).to_csv("./data/ppo_time_65000.csv")
 
-    agent.save("9000")
+    agent.save("65000")
 
 
 if __name__ == "__main__":

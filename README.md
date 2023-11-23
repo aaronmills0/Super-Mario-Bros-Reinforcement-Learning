@@ -1,4 +1,4 @@
-# smrl
+# Super Mario Bros: Reinforcement Learning (SMRL)
 
 Welcome to my COMP 579 final project on reinforcement learning for Super Mario Bros.
 
